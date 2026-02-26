@@ -26,4 +26,8 @@ class UnresolvedRouteException extends \Exception {
 		parent::__construct($message, $code, $previous);
 		$this->routeInfo = $aRouteInfo;
 	}
+
+	public function __toString(): string {
+    return parent::__toString() . "\nRoute info: " . json_encode($this->getRouteInfo(), JSON_PRETTY_PRINT);
+  }
 }
