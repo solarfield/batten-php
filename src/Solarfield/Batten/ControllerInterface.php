@@ -32,10 +32,11 @@ interface ControllerInterface {
 	static public function getInitialRoute();
 
 	/**
-	 * @param $aInfo
-	 * @return ControllerInterface|null
-	 */
-	public function resolveController($aInfo);
+* @param array|null $aInfo Route info passed through each iteration of the boot loop.
+* @param array $aBootPath A history of the boot loop iterations.
+* @return ControllerInterface|null
+*/
+	public function resolveController($aInfo, &$aBootPath);
 
 	/**
 	 * Called if the controller is resolved to the final controller in resolveController().

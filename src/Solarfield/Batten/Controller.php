@@ -10,7 +10,6 @@ use Throwable;
 abstract class Controller implements ControllerInterface {
 	use EventTargetTrait;
 
-	static private $bootPath = [];
 	static private $bootLoopRecoveryAttempted;
 	static private $componentResolver;
 
@@ -88,6 +87,8 @@ abstract class Controller implements ControllerInterface {
 			Env::getLogger()->debug('App package file path: '. Env::getVars()->get('appPackageFilePath'));
 		}
 
+		$bootPath = [];
+
 		//default some expected boot info
 		//Any additional data will be kept and passed to resolveController()
 		$info = $aInfo?:[];
@@ -102,7 +103,7 @@ abstract class Controller implements ControllerInterface {
 		$finalError = null;
 
 		try {
-			$finalController = $stubController->resolveController($info);
+			$finalController = $stubController->resolveController($info, $bootPath);
 		}
 		catch (Throwable $ex) {
 			$finalError = $ex;
@@ -118,7 +119,7 @@ abstract class Controller implements ControllerInterface {
 			$finalError = new UnresolvedRouteException(
 				$message, 0, null,
 				[
-					'iterations' => array_values(self::$bootPath),
+					'bootPath' => array_values($bootPath),
 				]
 			);
 
@@ -129,9 +130,11 @@ abstract class Controller implements ControllerInterface {
 			//if the boot loop was already recovered previously
 			if (self::$bootLoopRecoveryAttempted) {
 				//don't attempt to recover again, to avoid causing an infinite loop
-				throw new Exception(
-					"Unrecoverable boot loop error.",
-					0, $finalError
+				throw new BootLoopException(
+					"Unrecoverable boot loop error.", 0, $finalError,
+					[
+						'bootPath' => array_values($bootPath),
+					]
 				);
 			}
 
@@ -195,7 +198,7 @@ abstract class Controller implements ControllerInterface {
 
 	}
 
-	public function resolveController($aInfo) {
+	public function resolveController($aInfo, &$aBootPath) {
 		//this remains true until the boot loop stops.
 		//During each iteration of the boot loop, controllers are created and asked to provide the next step in the route.
 		//Once the same step is returned twice (i.e. no movement), we consider the route successfully processed, and the
@@ -246,9 +249,9 @@ abstract class Controller implements ControllerInterface {
 				//or we still have routing to do
 				if ($tempController == null || $tempInfo['moduleCode'] != $tempController->getCode() || $tempInfo['nextRoute'] !== null) {
 					//if the current iteration has not been encountered before
-					if (!array_key_exists($tempIteration, self::$bootPath)) {
+					if (!array_key_exists($tempIteration, $aBootPath)) {
 						//append the current iteration to the boot path
-						self::$bootPath[$tempIteration] = [
+						$aBootPath[$tempIteration] = [
 							'moduleCode' => $tempInfo['moduleCode'],
 							'nextRoute' => $tempInfo['nextRoute'],
 						];
@@ -309,7 +312,7 @@ abstract class Controller implements ControllerInterface {
 						$keepRouting = false;
 
 						//append the current iteration to the boot path
-						self::$bootPath[$tempIteration] = [
+						$aBootPath[$tempIteration] = [
 							'moduleCode' => $tempInfo['moduleCode'],
 							'nextRoute' => $tempInfo['nextRoute'],
 						];
